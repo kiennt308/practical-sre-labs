@@ -1,0 +1,5 @@
+slo_tier,arch_profile,orders_k,unit_1k_usd,infra_usd,downtime_min
+99.9%,single_region_multi_az,20000,0.90,18000,43.20
+99.95%,vol04_focus12_dual_region,20000,1.10,22000,21.60
+99.99%,active_active_global_aurora,20000,1.90,38000,4.32
+99.995%,active_3x_dedicated_warroom,20000,3.70,74000,2.16

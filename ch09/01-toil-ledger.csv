@@ -1,0 +1,13 @@
+task_id,category,is_toil,weekly_hours,automation_build_hours,blast_risk
+TOIL-01,cert-renewal,true,16.0,24.0,medium
+TOIL-02,alert-ack-noise,true,18.0,36.0,low
+TOIL-03,az-drain-manual,true,12.0,30.0,high
+TOIL-04,rds-snapshot-copy,true,10.0,28.0,low
+TOIL-05,k8s-pod-restart,true,14.0,42.0,medium
+TOIL-06,iam-key-rotation,true,12.0,48.0,medium
+TOIL-07,war-room-scribe,true,10.0,80.0,low
+ENG-01,slo-automation,false,16.0,0.0,low
+ENG-02,otel-exemplars,false,14.0,0.0,low
+ENG-03,chaos-gameday,false,12.0,0.0,medium
+ENG-04,capacity-usl,false,14.0,0.0,low
+ENG-05,postmortem-eng,false,12.0,0.0,low

@@ -1,0 +1,150 @@
+# 03-orderflow-mwbr-rules.yaml
+# Prometheus v3.16 Multi-Window Multi-Burn-Rate (MWMBR) SLO rules.
+# Copyright (c) 2026 Kien Nguyen. Licensed under Apache-2.0.
+groups:
+  - name: orderflow_checkout_slo_recordings
+    interval: 1m
+    rules:
+      - record: orderflow:http_errors:ratio_rate5m
+        labels:
+          service: orderflow-checkout
+        expr: >-
+          (
+            sum(rate(http_requests_total{
+            namespace="orderflow-prod",
+            service=~"order-gateway|order-service",
+            code=~"5.."
+            }[5m]))
+            or vector(0)
+          )
+          /
+          sum(rate(http_requests_total{
+          namespace="orderflow-prod",
+          service=~"order-gateway|order-service"
+          }[5m]))
+
+      - record: orderflow:http_errors:ratio_rate30m
+        labels:
+          service: orderflow-checkout
+        expr: >-
+          (
+            sum(rate(http_requests_total{
+            namespace="orderflow-prod",
+            service=~"order-gateway|order-service",
+            code=~"5.."
+            }[30m]))
+            or vector(0)
+          )
+          /
+          sum(rate(http_requests_total{
+          namespace="orderflow-prod",
+          service=~"order-gateway|order-service"
+          }[30m]))
+
+      - record: orderflow:http_errors:ratio_rate1h
+        labels:
+          service: orderflow-checkout
+        expr: >-
+          (
+            sum(rate(http_requests_total{
+            namespace="orderflow-prod",
+            service=~"order-gateway|order-service",
+            code=~"5.."
+            }[1h]))
+            or vector(0)
+          )
+          /
+          sum(rate(http_requests_total{
+          namespace="orderflow-prod",
+          service=~"order-gateway|order-service"
+          }[1h]))
+
+      - record: orderflow:http_errors:ratio_rate6h
+        labels:
+          service: orderflow-checkout
+        expr: >-
+          (
+            sum(rate(http_requests_total{
+            namespace="orderflow-prod",
+            service=~"order-gateway|order-service",
+            code=~"5.."
+            }[6h]))
+            or vector(0)
+          )
+          /
+          sum(rate(http_requests_total{
+          namespace="orderflow-prod",
+          service=~"order-gateway|order-service"
+          }[6h]))
+
+      - record: orderflow:http_errors:ratio_rate3d
+        labels:
+          service: orderflow-checkout
+        expr: >-
+          (
+            sum(rate(http_requests_total{
+            namespace="orderflow-prod",
+            service=~"order-gateway|order-service",
+            code=~"5.."
+            }[3d]))
+            or vector(0)
+          )
+          /
+          sum(rate(http_requests_total{
+          namespace="orderflow-prod",
+          service=~"order-gateway|order-service"
+          }[3d]))
+
+  - name: orderflow_checkout_slo_alerts
+    interval: 1m
+    rules:
+      - alert: OrderflowCheckoutFastBurnPage
+        expr: >-
+          orderflow:http_errors:ratio_rate1h{
+          service="orderflow-checkout"} > (14.4 * 0.0005)
+          and
+          orderflow:http_errors:ratio_rate5m{
+          service="orderflow-checkout"} > (14.4 * 0.0005)
+        labels:
+          severity: critical
+          slo: checkout-availability
+          service: orderflow-checkout
+          namespace: orderflow-prod
+          region: us-east-1
+        annotations:
+          summary: "OrderFlow fast burn 14.4x on 1h and 5m windows"
+          runbook: "ch04/01-ics-runbook-checkout-burn.yaml"
+
+      - alert: OrderflowCheckoutSlowFastPage
+        expr: >-
+          orderflow:http_errors:ratio_rate6h{
+          service="orderflow-checkout"} > (6.0 * 0.0005)
+          and
+          orderflow:http_errors:ratio_rate30m{
+          service="orderflow-checkout"} > (6.0 * 0.0005)
+        labels:
+          severity: critical
+          slo: checkout-availability
+          service: orderflow-checkout
+          namespace: orderflow-prod
+          region: us-east-1
+        annotations:
+          summary: "OrderFlow burn 6.0x on 6h and 30m windows"
+          runbook: "ch04/01-ics-runbook-checkout-burn.yaml"
+
+      - alert: OrderflowCheckoutSlowBurnTicket
+        expr: >-
+          orderflow:http_errors:ratio_rate3d{
+          service="orderflow-checkout"} > (1.0 * 0.0005)
+          and
+          orderflow:http_errors:ratio_rate6h{
+          service="orderflow-checkout"} > (1.0 * 0.0005)
+        labels:
+          severity: warning
+          slo: checkout-availability
+          service: orderflow-checkout
+          namespace: orderflow-prod
+          region: us-east-1
+        annotations:
+          summary: "OrderFlow chronic burn 1.0x on 3d and 6h windows"
+          runbook: "ch04/01-ics-runbook-checkout-burn.yaml"

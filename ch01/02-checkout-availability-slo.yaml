@@ -1,0 +1,81 @@
+# 02-checkout-availability-slo.yaml
+# OrderFlow 99.95% 30-day rolling availability SLO (21.6m budget).
+# Copyright (c) 2026 Kien Nguyen. Licensed under Apache-2.0.
+apiVersion: openslo/v1
+kind: AlertCondition
+metadata:
+  name: checkout-fast-burn-14x
+  displayName: Checkout Fast Burn 14.4x
+spec:
+  description: Page when error budget burns at >= 14.4x over 1h.
+  severity: page
+  condition:
+    kind: burnrate
+    op: gte
+    threshold: 14.4
+    lookbackWindow: 1h
+    alertAfter: 5m
+---
+apiVersion: openslo/v1
+kind: AlertPolicy
+metadata:
+  name: orderflow-burn-rate-policy
+  displayName: OrderFlow Checkout Burn Rate Policy
+spec:
+  description: Route SLO burn alerts to vendor-neutral Alertmanager.
+  alertWhenBreaching: true
+  conditions:
+    - conditionRef: checkout-fast-burn-14x
+  notificationTargets:
+    - targetRef: alertmanager-orderflow
+---
+apiVersion: openslo/v1
+kind: SLO
+metadata:
+  name: orderflow-checkout-avail
+  displayName: OrderFlow Checkout Availability (99.95%)
+  labels:
+    namespace: orderflow-prod
+    tier: tier-1
+spec:
+  description: >-
+    30-day rolling availability SLO across order-gateway and
+    order-service (21.6 minutes monthly error budget).
+  service: orderflow-checkout
+  budgetingMethod: Occurrences
+  timeWindow:
+    - duration: 30d
+      isRolling: true
+  indicator:
+    metadata:
+      name: checkout-http-availability
+      displayName: Checkout Good vs Valid HTTP Requests
+    spec:
+      ratioMetric:
+        counter: true
+        good:
+          metricSource:
+            metricSourceRef: orderflow-prom
+            type: Prometheus
+            spec:
+              query: >-
+                sum(rate(http_requests_total{
+                namespace="orderflow-prod",
+                service=~"order-gateway|order-service",
+                code!~"5.."
+                }[5m]))
+        total:
+          metricSource:
+            metricSourceRef: orderflow-prom
+            type: Prometheus
+            spec:
+              query: >-
+                sum(rate(http_requests_total{
+                namespace="orderflow-prod",
+                service=~"order-gateway|order-service"
+                }[5m]))
+  objectives:
+    - displayName: Availability 99.95%
+      target: 0.9995
+  alertPolicies:
+    - alertPolicyRef: orderflow-burn-rate-policy

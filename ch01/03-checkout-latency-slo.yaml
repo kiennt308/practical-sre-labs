@@ -1,0 +1,53 @@
+# 03-checkout-latency-slo.yaml
+# OrderFlow 99.0% < 250ms 30-day rolling checkout latency SLO.
+# Copyright (c) 2026 Kien Nguyen. Licensed under Apache-2.0.
+apiVersion: openslo/v1
+kind: SLO
+metadata:
+  name: orderflow-checkout-latency
+  displayName: OrderFlow Checkout Latency (99.0% < 250ms)
+  labels:
+    namespace: orderflow-prod
+    tier: tier-1
+spec:
+  description: >-
+    99.0% of valid POST /v1/checkout requests complete under 250ms
+    over a 30-day rolling window using Prometheus v3.16 buckets.
+  service: orderflow-checkout
+  budgetingMethod: Occurrences
+  timeWindow:
+    - duration: 30d
+      isRolling: true
+  indicator:
+    metadata:
+      name: checkout-http-latency-250ms
+      displayName: Checkout Fast Requests (< 250ms) Ratio
+    spec:
+      ratioMetric:
+        counter: true
+        good:
+          metricSource:
+            metricSourceRef: orderflow-prom
+            type: Prometheus
+            spec:
+              query: >-
+                sum(rate(http_request_duration_seconds_bucket{
+                namespace="orderflow-prod",
+                service="order-gateway",
+                route="/v1/checkout",
+                le="0.25"
+                }[5m]))
+        total:
+          metricSource:
+            metricSourceRef: orderflow-prom
+            type: Prometheus
+            spec:
+              query: >-
+                sum(rate(http_request_duration_seconds_count{
+                namespace="orderflow-prod",
+                service="order-gateway",
+                route="/v1/checkout"
+                }[5m]))
+  objectives:
+    - displayName: Checkout P99 under 250ms
+      target: 0.99

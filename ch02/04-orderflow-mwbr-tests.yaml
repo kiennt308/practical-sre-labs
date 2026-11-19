@@ -1,0 +1,86 @@
+# 04-orderflow-mwbr-tests.yaml
+# Deterministic promtool unit tests for MWMBR SLO alert precision.
+# Copyright (c) 2026 Kien Nguyen. Licensed under Apache-2.0.
+rule_files:
+  - 03-orderflow-mwbr-rules.yaml
+
+evaluation_interval: 1m
+
+tests:
+  # Case 1: 2-minute transient 5% spike must NOT page or ticket.
+  - interval: 1m
+    input_series:
+      - series: >-
+          http_requests_total{namespace="orderflow-prod",
+          service="order-gateway",code="200"}
+        values: "0+100x360 36095 36190 36290+100x10"
+      - series: >-
+          http_requests_total{namespace="orderflow-prod",
+          service="order-gateway",code="500"}
+        values: "0+0x360 5 10 10+0x10"
+    alert_rule_test:
+      - eval_time: 363m
+        alertname: OrderflowCheckoutFastBurnPage
+        exp_alerts: []
+      - eval_time: 363m
+        alertname: OrderflowCheckoutSlowFastPage
+        exp_alerts: []
+      - eval_time: 363m
+        alertname: OrderflowCheckoutSlowBurnTicket
+        exp_alerts: []
+
+  # Case 2: Sustained 20% outage triggers FastBurnPage within 5m.
+  - interval: 1m
+    input_series:
+      - series: >-
+          http_requests_total{namespace="orderflow-prod",
+          service="order-gateway",code="200"}
+        values: "0+100x60 6080 6160 6240 6320 6400 6480"
+      - series: >-
+          http_requests_total{namespace="orderflow-prod",
+          service="order-gateway",code="500"}
+        values: "0+0x60 20 40 60 80 100 120"
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: OrderflowCheckoutFastBurnPage
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              slo: checkout-availability
+              service: orderflow-checkout
+              namespace: orderflow-prod
+              region: us-east-1
+            exp_annotations:
+              summary: "OrderFlow fast burn 14.4x on 1h and 5m windows"
+              runbook: "ch04/01-ics-runbook-checkout-burn.yaml"
+
+  # Case 3: Chronic 0.1% degradation fires Ticket without Page.
+  - interval: 1m
+    input_series:
+      - series: >-
+          http_requests_total{namespace="orderflow-prod",
+          service="order-gateway",code="200"}
+        values: "0+999x4350"
+      - series: >-
+          http_requests_total{namespace="orderflow-prod",
+          service="order-gateway",code="500"}
+        values: "0+1x4350"
+    alert_rule_test:
+      - eval_time: 4325m
+        alertname: OrderflowCheckoutFastBurnPage
+        exp_alerts: []
+      - eval_time: 4325m
+        alertname: OrderflowCheckoutSlowFastPage
+        exp_alerts: []
+      - eval_time: 4325m
+        alertname: OrderflowCheckoutSlowBurnTicket
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              slo: checkout-availability
+              service: orderflow-checkout
+              namespace: orderflow-prod
+              region: us-east-1
+            exp_annotations:
+              summary: "OrderFlow chronic burn 1.0x on 3d and 6h windows"
+              runbook: "ch04/01-ics-runbook-checkout-burn.yaml"

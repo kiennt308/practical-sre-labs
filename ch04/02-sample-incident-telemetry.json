@@ -1,0 +1,118 @@
+{
+  "incident_id": "INC-2026-114",
+  "severity": "SEV-1",
+  "service": "orderflow-checkout",
+  "namespace": "orderflow-prod",
+  "region": "us-east-1",
+  "alert": {
+    "alertname": "OrderflowCheckoutFastBurnPage",
+    "fired_at_utc": "2026-11-12T02:14:00Z",
+    "burn_rate_1h": 14.8,
+    "error_ratio_5m": 0.084,
+    "slo_target": 0.9995,
+    "runbook": "ch04/01-ics-runbook-checkout-burn.yaml"
+  },
+  "ics_assignments": {
+    "IC": "m.chen",
+    "OL": "k.nguyen",
+    "CL": "r.patel",
+    "Scribe": "a.okafor"
+  },
+  "otel_exemplars": [
+    {
+      "exemplar_id": "ex-01",
+      "metric": "http_requests_total",
+      "observed_at_utc": "2026-11-12T02:13:42Z",
+      "value": 1.0,
+      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "span_id": "00f067aa0ba902b7",
+      "root_service": "order-gateway",
+      "failing_span": {
+        "service": "order-service",
+        "dependency": "orderflow-global-aurora",
+        "operation": "pgx.pool.Acquire",
+        "status": "ERROR",
+        "duration_ms": 2840,
+        "db_pool_active": 100,
+        "db_pool_max": 100,
+        "error_message": "context deadline exceeded waiting for pool"
+      }
+    },
+    {
+      "exemplar_id": "ex-02",
+      "metric": "http_request_duration_seconds_bucket",
+      "observed_at_utc": "2026-11-12T02:14:18Z",
+      "value": 2.91,
+      "trace_id": "7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d",
+      "span_id": "11e178bb1cb013c8",
+      "root_service": "order-gateway",
+      "failing_span": {
+        "service": "order-service",
+        "dependency": "orderflow-global-aurora",
+        "operation": "pgx.pool.Acquire",
+        "status": "ERROR",
+        "duration_ms": 2910,
+        "db_pool_active": 100,
+        "db_pool_max": 100,
+        "error_message": "context deadline exceeded waiting for pool"
+      }
+    },
+    {
+      "exemplar_id": "ex-03",
+      "metric": "http_requests_total",
+      "observed_at_utc": "2026-11-12T02:15:04Z",
+      "value": 1.0,
+      "trace_id": "9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c",
+      "span_id": "22f289cc2dc124d9",
+      "root_service": "order-gateway",
+      "failing_span": {
+        "service": "payment-worker",
+        "dependency": "orderflow-global-aurora",
+        "operation": "INSERT INTO payment_intents",
+        "status": "ERROR",
+        "duration_ms": 3005,
+        "db_pool_active": 100,
+        "db_pool_max": 100,
+        "error_message": "upstream checkout aborted; pool exhausted"
+      }
+    }
+  ],
+  "timeline_events": [
+    {
+      "timestamp_utc": "2026-11-12T02:09:00Z",
+      "phase": "fault_start",
+      "actor": "argocd-sync",
+      "detail": "order-service v2.41.0 rolled out to us-east-1"
+    },
+    {
+      "timestamp_utc": "2026-11-12T02:14:00Z",
+      "phase": "detected",
+      "actor": "alertmanager",
+      "detail": "OrderflowCheckoutFastBurnPage fired (14.8x burn)"
+    },
+    {
+      "timestamp_utc": "2026-11-12T02:15:30Z",
+      "phase": "ics_activated",
+      "actor": "IC",
+      "detail": "ICS bridge opened; OL/CL/Scribe roles confirmed"
+    },
+    {
+      "timestamp_utc": "2026-11-12T02:18:00Z",
+      "phase": "exemplar_isolated",
+      "actor": "OL",
+      "detail": "OTel exemplars isolated orderflow-global-aurora pool"
+    },
+    {
+      "timestamp_utc": "2026-11-12T02:23:00Z",
+      "phase": "mitigated",
+      "actor": "OL",
+      "detail": "Rolled back order-service to v2.40.9 via Argo CD"
+    },
+    {
+      "timestamp_utc": "2026-11-12T02:36:00Z",
+      "phase": "resolved",
+      "actor": "IC",
+      "detail": "5m error ratio < 0.05%; INC-2026-114 closed"
+    }
+  ]
+}

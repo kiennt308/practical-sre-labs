@@ -1,0 +1,68 @@
+# Operational AWS FIS Game Day Charter for OrderFlow Checkout.
+# Extends Vol. 04 experiment template: orderflow-az-brownout-drill
+# Author: Kien Nguyen | License: Apache-2.0
+# Repo: https://github.com/kiennt308/practical-sre-labs
+apiVersion: governance.orderflow.io/v1
+kind: GameDayCharter
+metadata:
+  name: orderflow-az-brownout-drill-ops
+  experimentTemplateRef: orderflow-az-brownout-drill
+  service: orderflow-checkout
+  regions:
+    - us-east-1
+    - eu-west-1
+spec:
+  hypothesis: >-
+    When one Availability Zone experiences partial traffic slowdown
+    in us-east-1a, Route 53 ARC Zonal Autoshift and order-gateway
+    shedding preserve checkout availability >= 99.95% and p95 < 250ms.
+
+  blastRadiusCap:
+    environment: staging
+    maxAvailabilityZones: 1
+    targetSubnetsSelectionMode: "COUNT(1)"
+    maxDurationIso8601: "PT5M"
+    forbiddenServices:
+      - orderflow-global-aurora
+      - orderflow-valkey-cache
+
+  stopConditions:
+    - source: "aws:cloudwatch:alarm"
+      alarmName: "orderflow-checkout-5xx-abort"
+      threshold: "5xx rate > 1.0% for 1m"
+      action: "Immediately halt FIS and restore subnet ACLs"
+    - source: "prometheus:mwmbr"
+      ruleName: "OrderFlowCheckoutBurnRate14x"
+      threshold: "5m burn rate > 14.4x"
+      action: "IC executes abort-fis-experiment runbook"
+
+  preFlightChecklist:
+    - id: pf-01
+      item: "Confirm orderflow-global-aurora automated backup < 15m old"
+      required: true
+    - id: pf-02
+      item: "Verify Grafana v13.3.1 & Prometheus v3.16.0 ingestion green"
+      required: true
+    - id: pf-03
+      item: "Validate Alertmanager v0.35 mute interval for drill tag"
+      required: true
+    - id: pf-04
+      item: "Run manual FIS StopExperiment CLI permissions dry-run"
+      required: true
+    - id: pf-05
+      item: "Confirm stakeholder notice posted in #sre-gameday channel"
+      required: true
+
+  icsRoster:
+    incidentCommander:
+      role: "IC"
+      responsibilities: "Holds sole Go/No-Go and manual abort authority"
+    operationsLead:
+      role: "OL"
+      responsibilities: "Executes FIS drill and verifies Zonal Autoshift"
+    communicationsLead:
+      role: "CL"
+      responsibilities: "Posts 15m updates and protects war room focus"
+    scribe:
+      role: "Scribe"
+      responsibilities: "Logs exact UTC timestamps for post-drill review"

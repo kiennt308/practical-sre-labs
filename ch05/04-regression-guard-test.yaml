@@ -1,0 +1,62 @@
+# 04-regression-guard-test.yaml
+# Postmortem regression guard (PM-108) proving MWMBR catches the
+# INC-2026-114 Aurora pool leak within 5m and slow-drain at 6h/30m.
+# Copyright (c) 2026 Kien Nguyen. Licensed under Apache-2.0.
+rule_files:
+  - ../ch02/03-orderflow-mwbr-rules.yaml
+
+evaluation_interval: 1m
+
+tests:
+  # Regression A: INC-2026-114 10% pool exhaustion pages in 5m.
+  - interval: 1m
+    input_series:
+      - series: >-
+          http_requests_total{namespace="orderflow-prod",
+          service="order-service",code="200"}
+        values: "0+900x60 54810 55620 56430 57240 58050 58860"
+      - series: >-
+          http_requests_total{namespace="orderflow-prod",
+          service="order-service",code="503"}
+        values: "0+0x60 90 180 270 360 450 540"
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: OrderflowCheckoutFastBurnPage
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              slo: checkout-availability
+              service: orderflow-checkout
+              namespace: orderflow-prod
+              region: us-east-1
+            exp_annotations:
+              summary: "OrderFlow fast burn 14.4x on 1h and 5m windows"
+              runbook: "ch04/01-ics-runbook-checkout-burn.yaml"
+
+  # Regression B: Gradual 0.4% pool-leak slow-drain triggers 6h/30m.
+  - interval: 1m
+    input_series:
+      - series: >-
+          http_requests_total{namespace="orderflow-prod",
+          service="order-service",code="200"}
+        values: "0+996x400"
+      - series: >-
+          http_requests_total{namespace="orderflow-prod",
+          service="order-service",code="503"}
+        values: "0+4x400"
+    alert_rule_test:
+      - eval_time: 365m
+        alertname: OrderflowCheckoutFastBurnPage
+        exp_alerts: []
+      - eval_time: 365m
+        alertname: OrderflowCheckoutSlowFastPage
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              slo: checkout-availability
+              service: orderflow-checkout
+              namespace: orderflow-prod
+              region: us-east-1
+            exp_annotations:
+              summary: "OrderFlow burn 6.0x on 6h and 30m windows"
+              runbook: "ch04/01-ics-runbook-checkout-burn.yaml"

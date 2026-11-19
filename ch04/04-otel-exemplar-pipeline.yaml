@@ -1,0 +1,57 @@
+# 04-otel-exemplar-pipeline.yaml
+# OpenTelemetry Collector v0.165.0 pipeline forwarding trace exemplars
+# from OTLP metrics/traces into Prometheus v3.16 and Grafana Tempo.
+# Copyright (c) 2026 Kien Nguyen. Licensed under Apache-2.0.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  batch:
+    timeout: 2s
+    send_batch_size: 1024
+
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: orderflow-prod
+        action: upsert
+
+exporters:
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    namespace: orderflow
+    enable_open_metrics: true
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  prometheusremotewrite:
+    endpoint: http://prometheus-operated.monitoring:9090/api/v1/write
+    send_metadata: true
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  otlp/traces:
+    endpoint: tempo-distributor.monitoring.svc:4317
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus, prometheusremotewrite]
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp/traces]

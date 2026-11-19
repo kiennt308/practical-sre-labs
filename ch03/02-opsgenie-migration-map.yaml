@@ -1,0 +1,58 @@
+# 02-opsgenie-migration-map.yaml
+# Inventory mapping legacy Opsgenie resources to Alertmanager-first
+# routing + JSM / PagerDuty / incident.io ahead of April 5, 2027.
+# Copyright (c) 2026 Kien Nguyen. Licensed under Apache-2.0.
+migration_metadata:
+  platform: orderflow-prod
+  opsgenie_end_of_sale: "2025-06-04"
+  opsgenie_shutdown_date: "2027-04-05"
+  architecture_pattern: alertmanager-first-decoupled
+  primary_router: ch03/01-alertmanager-orderflow.yaml
+  target_paging_tiers:
+    - name: pagerduty
+      role: primary-high-urgency-paging
+    - name: incident-io
+      role: slack-native-incident-orchestration
+    - name: jira-service-management
+      role: atlassian-native-it-escalation
+
+legacy_mappings:
+  - legacy_id: og-sched-checkout-primary
+    legacy_type: opsgenie_schedule
+    region_scope: [us-east-1, eu-west-1]
+    legacy_rotation: 12h-follow-the-sun
+    new_routing_owner: alertmanager-orderflow
+    target_adapter: pagerduty
+    target_resource: pd-sched-orderflow-checkout-pri
+    cutoff_date: "2026-12-15"
+    status: migrated
+
+  - legacy_id: og-esc-tier1-checkout
+    legacy_type: opsgenie_escalation
+    region_scope: [us-east-1, eu-west-1]
+    legacy_ack_timeout: 5m
+    new_routing_owner: alertmanager-orderflow
+    target_adapter: incident-io
+    target_resource: inc-esc-orderflow-sev1
+    cutoff_date: "2026-12-31"
+    status: in_progress
+
+  - legacy_id: og-policy-offhours-suppress
+    legacy_type: opsgenie_notification_policy
+    region_scope: [us-east-1, eu-west-1]
+    legacy_rule: suppress-warning-offhours
+    new_routing_owner: alertmanager-time-interval-off-hours
+    target_adapter: alertmanager-native
+    target_resource: time_intervals.off-hours
+    cutoff_date: "2026-11-30"
+    status: migrated
+
+  - legacy_id: og-integ-aurora-payments
+    legacy_type: opsgenie_api_integration
+    region_scope: [us-east-1, eu-west-1]
+    legacy_rule: direct-worker-webhook
+    new_routing_owner: alertmanager-inhibit-rules
+    target_adapter: jira-service-management
+    target_resource: jsm-alert-orderflow-db-tier
+    cutoff_date: "2027-01-31"
+    status: planned

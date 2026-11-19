@@ -1,0 +1,85 @@
+# 01-ics-runbook-checkout-burn.yaml
+# SEV-1 Incident Command System (ICS) Runbook for OrderFlow Checkout.
+# Copyright (c) 2026 Kien Nguyen. Licensed under Apache-2.0.
+runbook_id: RB-SEV1-CHECKOUT-BURN
+version: "2026.11"
+trigger_alerts:
+  - OrderflowCheckoutFastBurnPage
+  - OrderflowCheckoutSlowFastPage
+severity: SEV-1
+scope:
+  namespace: orderflow-prod
+  services:
+    - order-gateway
+    - order-service
+    - payment-worker
+    - orderflow-global-aurora
+    - orderflow-valkey-cache
+  regions:
+    - us-east-1
+    - eu-west-1
+
+ics_roles:
+  IC:
+    title: Incident Commander
+    responsibilities:
+      - Declare SEV-1 bridge and enforce 5m role assignment.
+      - Keep responders focused on mitigation over root-cause hunting.
+      - Authorize Argo CD rollback, traffic shift, and break-glass use.
+  OL:
+    title: Operations Lead
+    responsibilities:
+      - Triage Prometheus burn-rate alert to OTel v0.165 trace exemplar.
+      - Isolate failing dependency (gateway, Aurora pool, or Valkey).
+      - Execute rollback or regional traffic drain and verify 5xx drop.
+  CL:
+    title: Communications Lead
+    responsibilities:
+      - Publish initial stakeholder notice within 10 minutes.
+      - Post status updates every 15 minutes during active SEV-1.
+      - Coordinate customer support macros and resolution notice.
+  Scribe:
+    title: Timeline and Evidence Scribe
+    responsibilities:
+      - Capture UTC timestamps for fault, page, mitigation, resolution.
+      - Record trace_ids, Argo CD revisions, and break-glass ticket IDs.
+      - Seed ch05 blameless postmortem draft immediately after closure.
+
+mitigation_checklist_5m:
+  - step: 1
+    action: Confirm ICS roles (IC, OL, CL, Scribe) in #inc-orderflow.
+    target_elapsed: 2m
+  - step: 2
+    action: Open Grafana SLO alert and follow OTel exemplar trace_id.
+    target_elapsed: 3m
+  - step: 3
+    action: Check recent Argo CD syncs in last 30m for orderflow-prod.
+    target_elapsed: 4m
+  - step: 4
+    action: Mitigate first (rollback or ARC shift) before deep debugging.
+    target_elapsed: 5m
+
+containment_procedures:
+  argocd_rollback:
+    when: Error spike correlates with deployment within last 30 minutes.
+    commands:
+      - argocd app history orderflow-checkout-prod
+      - argocd app rollback orderflow-checkout-prod <PREV_GOOD_REV>
+    verify: 5m error ratio drops below 0.05% within 3 minutes.
+
+  route53_arc_traffic_shift:
+    when: Single-region degradation (us-east-1 or eu-west-1) persists.
+    commands:
+      - >-
+        aws route53-recovery-cluster update-routing-control-state
+        --routing-control-arn <ARC_REGION_CTRL_ARN>
+        --routing-control-state Off
+    verify: Regional RPS drains to healthy peer and burn rate flattens.
+
+break_glass_audit:
+  allowed_only_when: Standard Argo CD rollback and read-only triage fail.
+  requirements:
+    - Require IC approval in incident channel before elevation.
+    - Bind temporary JIT role to incident_id (max 60m TTL).
+    - Log every kubectl exec or DB admin command to immutable audit sink.
+    - Mandatory security and SRE audit review within 24 hours.

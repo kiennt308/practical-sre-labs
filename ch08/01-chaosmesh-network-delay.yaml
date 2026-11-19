@@ -1,0 +1,25 @@
+# Chaos Mesh v2.8.8 NetworkChaos targeting payment-worker.
+# Author: Kien Nguyen | License: Apache-2.0
+# Repo: https://github.com/kiennt308/practical-sre-labs
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: payment-worker-az-latency
+  namespace: orderflow-prod
+  labels:
+    app.kubernetes.io/part-of: orderflow-checkout
+    sre.orderflow.io/experiment: ch08-network-delay
+spec:
+  action: delay
+  mode: one
+  selector:
+    namespaces:
+      - orderflow-prod
+    labelSelectors:
+      app.kubernetes.io/name: payment-worker
+  delay:
+    latency: "250ms"
+    jitter: "40ms"
+    correlation: "25"
+  direction: to
+  duration: "3m"

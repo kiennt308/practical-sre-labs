@@ -1,0 +1,60 @@
+# 01-alertmanager-orderflow.yaml
+# Alertmanager v0.35 vendor-neutral routing, inhibition & mute rules.
+# Zero opsgenie_configs ahead of Opsgenie April 5, 2027 shutdown.
+# Copyright (c) 2026 Kien Nguyen. Licensed under Apache-2.0.
+global:
+  resolve_timeout: 5m
+
+time_intervals:
+  - name: off-hours
+    time_intervals:
+      - weekdays: ["saturday", "sunday"]
+      - weekdays: ["monday:friday"]
+        times:
+          - start_time: "00:00"
+            end_time: "08:00"
+          - start_time: "20:00"
+            end_time: "24:00"
+
+route:
+  receiver: sre-slack-tickets
+  group_by: [alertname, slo, region]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers:
+        - severity="critical"
+      receiver: pager-oncall
+      repeat_interval: 15m
+    - matchers:
+        - severity="warning"
+      receiver: sre-slack-tickets
+      mute_time_intervals:
+        - off-hours
+
+inhibit_rules:
+  - source_matchers:
+      - severity="critical"
+    target_matchers:
+      - severity="warning"
+    equal: [slo, region, namespace]
+
+  - source_matchers:
+      - service="order-gateway"
+      - severity="critical"
+    target_matchers:
+      - service="payment-worker"
+    equal: [region, namespace]
+
+receivers:
+  - name: pager-oncall
+    webhook_configs:
+      - url: http://alert-bridge.monitoring.svc:8080/v1/page
+        send_resolved: true
+        max_alerts: 10
+  - name: sre-slack-tickets
+    webhook_configs:
+      - url: http://alert-bridge.monitoring.svc:8080/v1/ticket
+        send_resolved: true
+        max_alerts: 25

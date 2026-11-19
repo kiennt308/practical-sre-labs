@@ -1,0 +1,81 @@
+# 01-sloth-orderflow-checkout.yaml
+# Sloth v0.16 specification for OrderFlow Checkout availability & latency.
+# Copyright (c) 2026 Kien Nguyen. Licensed under Apache-2.0.
+version: "prometheus/v1"
+service: "orderflow-checkout"
+labels:
+  namespace: "orderflow-prod"
+  owner: "sre-platform"
+  tier: "tier-1"
+slos:
+  - name: "availability-99-95"
+    objective: 99.95
+    description: >-
+      30-day rolling HTTP 5xx availability SLO (21.6m monthly budget).
+    sli:
+      events:
+        error_query: >-
+          sum(rate(http_requests_total{
+          namespace="orderflow-prod",
+          service=~"order-gateway|order-service",
+          code=~"5.."
+          }[{{.window}}]))
+        total_query: >-
+          sum(rate(http_requests_total{
+          namespace="orderflow-prod",
+          service=~"order-gateway|order-service"
+          }[{{.window}}]))
+    alerting:
+      name: "OrderflowCheckoutAvailabilityBurn"
+      labels:
+        slo: "checkout-availability"
+        region: "us-east-1"
+      annotations:
+        summary: "OrderFlow checkout availability error budget burning"
+      page_alert:
+        labels:
+          severity: "critical"
+      ticket_alert:
+        labels:
+          severity: "warning"
+
+  - name: "latency-p99-250ms"
+    objective: 99.0
+    description: >-
+      99.0% of POST /v1/checkout requests finish within 250ms.
+    sli:
+      events:
+        error_query: >-
+          (
+            sum(rate(http_request_duration_seconds_count{
+            namespace="orderflow-prod",
+            service="order-gateway",
+            route="/v1/checkout"
+            }[{{.window}}]))
+            -
+            sum(rate(http_request_duration_seconds_bucket{
+            namespace="orderflow-prod",
+            service="order-gateway",
+            route="/v1/checkout",
+            le="0.25"
+            }[{{.window}}]))
+          )
+        total_query: >-
+          sum(rate(http_request_duration_seconds_count{
+          namespace="orderflow-prod",
+          service="order-gateway",
+          route="/v1/checkout"
+          }[{{.window}}]))
+    alerting:
+      name: "OrderflowCheckoutLatencyBurn"
+      labels:
+        slo: "checkout-latency"
+        region: "us-east-1"
+      annotations:
+        summary: "OrderFlow checkout p99 latency > 250ms budget burn"
+      page_alert:
+        labels:
+          severity: "critical"
+      ticket_alert:
+        labels:
+          severity: "warning"

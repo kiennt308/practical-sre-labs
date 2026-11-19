@@ -1,0 +1,72 @@
+# Chaos Mesh v2.8.8 Game Day Workflow with StatusCheck abort guard.
+# Author: Kien Nguyen | License: Apache-2.0
+# Repo: https://github.com/kiennt308/practical-sre-labs
+apiVersion: chaos-mesh.org/v1alpha1
+kind: Workflow
+metadata:
+  name: orderflow-checkout-gameday
+  namespace: orderflow-prod
+  labels:
+    app.kubernetes.io/part-of: orderflow-checkout
+spec:
+  entry: gameday-parallel-guard
+  templates:
+    - name: gameday-parallel-guard
+      templateType: Parallel
+      deadline: "6m"
+      children:
+        - slo-steady-state-probe
+        - fault-sequence
+
+    - name: slo-steady-state-probe
+      templateType: StatusCheck
+      deadline: "6m"
+      abortWithStatusCheck: true
+      statusCheck:
+        mode: Continuous
+        type: HTTP
+        intervalSeconds: 5
+        timeoutSeconds: 2
+        successThreshold: 1
+        failureThreshold: 2
+        http:
+          url: "http://order-gateway.orderflow-prod.svc:8080/healthz"
+          method: GET
+          criteria:
+            statusCode: "200"
+
+    - name: fault-sequence
+      templateType: Serial
+      deadline: "5m30s"
+      children:
+        - inject-payment-latency
+        - kill-one-order-pod
+
+    - name: inject-payment-latency
+      templateType: NetworkChaos
+      deadline: "2m30s"
+      networkChaos:
+        action: delay
+        mode: one
+        selector:
+          namespaces:
+            - orderflow-prod
+          labelSelectors:
+            app.kubernetes.io/name: payment-worker
+        delay:
+          latency: "250ms"
+          jitter: "40ms"
+        duration: "2m"
+
+    - name: kill-one-order-pod
+      templateType: PodChaos
+      deadline: "2m15s"
+      podChaos:
+        action: pod-kill
+        mode: one
+        selector:
+          namespaces:
+            - orderflow-prod
+          labelSelectors:
+            app.kubernetes.io/name: order-service
+        duration: "2m"

@@ -1,0 +1,13 @@
+action_id,inc_id,priority,summary,owner,due_date,status,blocks_release
+PM-101,INC-2026-112,P1,Jitter gateway retry,gw,2026-11-01,closed,true
+PM-102,INC-2026-112,P2,Tune Valkey eviction,cache,2026-11-28,open,false
+PM-103,INC-2026-113,P0,Test ARC zonal shift,sre,2026-11-10,open,true
+PM-104,INC-2026-113,P1,Doc payment fallback,pay,2026-11-12,closed,false
+PM-105,INC-2026-113,P2,Fix Grafana links,sre,2026-12-05,open,false
+PM-106,INC-2026-114,P0,Free pgx before retry,orders,2026-11-15,open,true
+PM-107,INC-2026-114,P0,Cap pgx idle tx 5s,orders,2026-11-22,wip,true
+PM-108,INC-2026-114,P0,Add MWBR CI guard,sre,2026-11-18,closed,true
+PM-109,INC-2026-114,P1,Gate canary pool pct,sre,2026-11-14,open,false
+PM-110,INC-2026-114,P1,Toxiproxy pool soak,orders,2026-11-29,open,false
+PM-111,INC-2026-115,P1,Cap Valkey clients,cache,2026-12-01,wip,false
+PM-112,INC-2026-116,P2,Archive Opsgenie URL,sre,2026-12-15,open,false

@@ -1,0 +1,16 @@
+# INTENTIONAL NEGATIVE FIXTURE: Unsafe Chaos Mesh PodChaos manifest.
+# OPA Conftest policy MUST reject this file before cluster apply:
+#   1. Missing metadata.namespace and spec.selector.namespaces
+#   2. Dangerous blast-radius spec.mode: all
+#   3. Missing bounded spec.duration
+# Author: Kien Nguyen | License: Apache-2.0
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: unsafe-unbounded-pod-kill
+spec:
+  action: pod-kill
+  mode: all
+  selector:
+    labelSelectors:
+      app.kubernetes.io/name: order-service
